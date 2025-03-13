@@ -1,8 +1,5 @@
-import os
-import logging
-import bcrypt
 from flask import Flask, jsonify, request
-from flask_cors import CORS
+from flask_cors import CORS, cross_origin  # Import CORS & cross_origin
 from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import (
     JWTManager, jwt_required, create_access_token, get_jwt_identity
@@ -11,6 +8,9 @@ from flask_migrate import Migrate
 from supabase import create_client, Client
 from config import Config
 from dotenv import load_dotenv
+import os
+import logging
+import bcrypt
 from typing import Optional
 
 load_dotenv()
@@ -29,8 +29,8 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
-    # Enable CORS (Allow frontend origin & credentials)
-    CORS(app, origins=["http://localhost:3000"], supports_credentials=True)
+    # ✅ Enable CORS (Allow frontend origin & credentials)
+    CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
     # Initialize database, migrations, and JWT
     db.init_app(app)
@@ -65,6 +65,7 @@ app = create_app()
 # -------------------  USER REGISTRATION -------------------
 
 @app.route("/register", methods=["POST"])
+@cross_origin()  # ✅ Enable CORS for this route
 def register():
     """User registration - Stores user info in Supabase and returns a token."""
     data = request.get_json()
@@ -114,6 +115,7 @@ def register():
 # -------------------  USER LOGIN -------------------
 
 @app.route("/login", methods=["POST"])
+@cross_origin()  # ✅ Enable CORS for this route
 def login():
     """User login - Checks email & password, returns JWT."""
     data = request.get_json()
@@ -155,7 +157,8 @@ def login():
 # ------------------- SECURED ROUTES -------------------
 
 @app.route('/tasks', methods=['GET'])
-@jwt_required()  # Protect route with JWT authentication
+@jwt_required()
+@cross_origin()  # ✅ Enable CORS for this route
 def get_tasks():
     """Retrieve tasks from Supabase (Requires JWT)."""
     try:
@@ -179,7 +182,8 @@ def get_tasks():
         return jsonify({"error": "An error occurred while fetching tasks", "details": str(e)}), 500
 
 @app.route('/tasks/<int:task_id>/bids', methods=['GET'])
-@jwt_required()  # Protect route with JWT authentication
+@jwt_required()
+@cross_origin()  # ✅ Enable CORS for this route
 def get_bids(task_id):
     """Retrieve bids for a specific task from Supabase (Requires JWT)."""
     try:
@@ -201,6 +205,16 @@ def get_bids(task_id):
     except Exception as e:
         logger.exception(f"Error fetching bids for task {task_id}")
         return jsonify({"error": "An error occurred while fetching bids", "details": str(e)}), 500
+
+# ✅ Added /api/tasks route
+@app.route('/api/tasks', methods=['GET'])
+def api_get_tasks():
+    """Simple test route for frontend API requests."""
+    tasks = [
+        {"id": 1, "name": "Fix Bug", "category": "Development"},
+        {"id": 2, "name": "Write Documentation", "category": "Writing"},
+    ]
+    return jsonify(tasks)
 
 if __name__ == "__main__":
     app.run(debug=True)
