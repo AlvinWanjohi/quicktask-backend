@@ -1,5 +1,5 @@
 from flask import Flask, jsonify, request
-from flask_cors import CORS, cross_origin  # Import CORS & cross_origin
+from flask_cors import CORS, cross_origin  
 from flask_sqlalchemy import SQLAlchemy
 from flask_jwt_extended import (
     JWTManager, jwt_required, create_access_token, get_jwt_identity
@@ -29,15 +29,15 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
-    # ✅ Enable CORS (Allow frontend origin & credentials)
+    
     CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
-    # Initialize database, migrations, and JWT
+    
     db.init_app(app)
     migrate.init_app(app, db)
     jwt.init_app(app)
 
-    # Initialize Supabase client
+    
     supabase_url = os.getenv("SUPABASE_URL")
     supabase_key = os.getenv("SUPABASE_KEY")
 
@@ -49,7 +49,7 @@ def create_app():
     supabase = create_client(supabase_url, supabase_key)
     logger.info("Supabase initialized successfully.")
 
-    # Register Blueprints
+    
     from routes.auth_routes import auth_bp
     from routes.task_routes import task_bp
     from routes.bid_routes import bid_bp
@@ -65,12 +65,12 @@ app = create_app()
 # -------------------  USER REGISTRATION -------------------
 
 @app.route("/register", methods=["POST"])
-@cross_origin()  # ✅ Enable CORS for this route
+@cross_origin()  
 def register():
     """User registration - Stores user info in Supabase and returns a token."""
     data = request.get_json()
 
-    # Extract user details
+    
     name = data.get("name")
     email = data.get("email")
     password = data.get("password")
@@ -79,15 +79,15 @@ def register():
         return jsonify({"error": "Missing fields", "success": False}), 400
 
     try:
-        # Check if user already exists
+        
         existing_user = supabase.table("users").select("id").eq("email", email).execute()
         if existing_user.data:
             return jsonify({"error": "User already exists", "success": False}), 400
 
-        # Hash password before storing
+        
         hashed_password = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
-        # Create user in Supabase Auth
+        
         response = supabase.auth.sign_up({"email": email, "password": password})
 
         if hasattr(response, "error") and response.error:
@@ -95,17 +95,17 @@ def register():
 
         user_id = response.user.id if response.user else None
 
-        # Insert user data into 'users' table
+    
         user_data = {
-            "id": user_id,  # Unique ID from Supabase Auth
+            "id": user_id,  
             "name": name,
             "email": email,
-            "password": hashed_password  # Store securely hashed password
+            "password": hashed_password  
         }
         supabase.table("users").insert(user_data).execute()
 
-        # Generate JWT token
-        access_token = create_access_token(identity=user_id)  # Use user ID for security
+        
+        access_token = create_access_token(identity=user_id)  
         return jsonify({"access_token": access_token, "success": True}), 201
 
     except Exception as e:
@@ -115,7 +115,7 @@ def register():
 # -------------------  USER LOGIN -------------------
 
 @app.route("/login", methods=["POST"])
-@cross_origin()  # ✅ Enable CORS for this route
+@cross_origin()  
 def login():
     """User login - Checks email & password, returns JWT."""
     data = request.get_json()
@@ -126,7 +126,7 @@ def login():
         return jsonify({"error": "Missing email or password", "success": False}), 400
 
     try:
-        # Retrieve user data from Supabase
+        
         response = supabase.table("users").select("id, email, password").eq("email", email).execute()
 
         if not response.data:
@@ -134,7 +134,7 @@ def login():
 
         user = response.data[0]
 
-        # Ensure password is securely stored
+        
         stored_password = user["password"]
         if not stored_password.startswith("$2b$"):
             return jsonify({
@@ -142,11 +142,11 @@ def login():
                 "success": False
             }), 400
 
-        # Check if the hashed password matches
+        
         if not bcrypt.checkpw(password.encode('utf-8'), stored_password.encode('utf-8')):
             return jsonify({"error": "Incorrect password", "success": False}), 401
 
-        # Generate JWT token
+        
         access_token = create_access_token(identity=user["id"])
         return jsonify({"access_token": access_token, "success": True}), 200
 
@@ -158,11 +158,11 @@ def login():
 
 @app.route('/tasks', methods=['GET'])
 @jwt_required()
-@cross_origin()  # ✅ Enable CORS for this route
+@cross_origin()  
 def get_tasks():
     """Retrieve tasks from Supabase (Requires JWT)."""
     try:
-        current_user_id = get_jwt_identity()  # Get authenticated user
+        current_user_id = get_jwt_identity() 
         logger.info(f"Fetching tasks for user ID: {current_user_id}")
 
         response = supabase.table('tasks').select('*').execute()
@@ -183,11 +183,11 @@ def get_tasks():
 
 @app.route('/tasks/<int:task_id>/bids', methods=['GET'])
 @jwt_required()
-@cross_origin()  # ✅ Enable CORS for this route
+@cross_origin()  
 def get_bids(task_id):
     """Retrieve bids for a specific task from Supabase (Requires JWT)."""
     try:
-        current_user_id = get_jwt_identity()  # Get authenticated user
+        current_user_id = get_jwt_identity()
         logger.info(f"Fetching bids for task {task_id} by user ID {current_user_id}")
 
         response = supabase.table('bids').select('*').eq('task_id', task_id).execute()
@@ -206,7 +206,7 @@ def get_bids(task_id):
         logger.exception(f"Error fetching bids for task {task_id}")
         return jsonify({"error": "An error occurred while fetching bids", "details": str(e)}), 500
 
-# ✅ Added /api/tasks route
+
 @app.route('/api/tasks', methods=['GET'])
 def api_get_tasks():
     """Simple test route for frontend API requests."""
@@ -217,4 +217,4 @@ def api_get_tasks():
     return jsonify(tasks)
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run()
